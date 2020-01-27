@@ -5,9 +5,15 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import android.content.DialogInterface;
 import android.content.SharedPreferences;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.view.ActionMode;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
+import android.widget.AbsListView;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
@@ -17,12 +23,15 @@ import android.widget.Toast;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import java.util.ArrayList;
+import java.util.List;
+import java.util.ListIterator;
 
 public class MainActivity extends AppCompatActivity {
 
     ListView listitem;
     FloatingActionButton fab;
     EditText edttodo;
+    ArrayList<String>getData = new ArrayList<String>();
 
     ArrayList<String> data = new ArrayList<String>();
 
@@ -33,10 +42,12 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+
         //CreateTodos();
         loadDataSharedPreference();
 
         listitem=findViewById(R.id.list_item);
+
         arrayAdapter=new ArrayAdapter<String>(this,R.layout.content,R.id.mobile, data);
         listitem.setAdapter(arrayAdapter);
 
@@ -48,6 +59,10 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         //7.1 membuat onItemLongClickListener di list view untuk menghapus data
+
+        listitem.setChoiceMode(AbsListView.CHOICE_MODE_MULTIPLE_MODAL);
+        listitem.setMultiChoiceModeListener(multiplayer);
+
         listitem.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
 
             @Override
@@ -70,6 +85,8 @@ public class MainActivity extends AppCompatActivity {
                 showDialogOption(position);
             }
         });
+
+
     }
 
     private void CreateTodos(){
@@ -82,16 +99,21 @@ public class MainActivity extends AppCompatActivity {
     private void onClickFabAdd(){
         View view=View.inflate(this,R.layout.dialog_add_view, null);
         edttodo=view.findViewById(R.id.edt_todo);
-        edttodo.setError("Tidak boleh kosong");
-
+        edttodo.setError("Tidak boleh kosong !");
         AlertDialog.Builder dialog=new AlertDialog.Builder(this);
         dialog.setTitle("Mau ngapain lagi ?");
+        dialog.setMessage("Isi dengan bener");
         dialog.setView(view);
         dialog.setPositiveButton("Add", new DialogInterface.OnClickListener() {
 
             @Override
             public void onClick(DialogInterface dialog, int which) {
 
+                if (TextUtils.isEmpty(edttodo.getText())){
+                    edttodo.setError("Tidak boleh kosong");
+                    Toast.makeText(getApplicationContext(), "Gaboleh kosong", Toast.LENGTH_SHORT).show();
+                    return;
+                }
                 int newKey=data.size();
                 String item = edttodo.getText().toString();
                 data.add(item);
@@ -208,4 +230,69 @@ public class MainActivity extends AppCompatActivity {
         dialog.create();
         dialog.show();
     }
+
+    public void removeSelectedItem(List<String> items){
+        for (String item: items){
+            data.remove(item);
+            reGenerateSortSP();
+        }
+        arrayAdapter.notifyDataSetChanged();
+    }
+    AbsListView.MultiChoiceModeListener multiplayer = new AbsListView.MultiChoiceModeListener() {
+        @Override
+        public void onItemCheckedStateChanged(ActionMode mode, int position, long id, boolean checked) {
+            if (getData.contains(data.get(position))){
+                getData.remove(data.get(position));
+                listitem.getChildAt(position).setBackgroundColor(Color.TRANSPARENT);
+            }
+            else {
+                getData.add(data.get(position));
+                listitem.getChildAt(position).setBackgroundColor(Color.parseColor("#FFF753"));
+            }
+            mode.setTitle(data.size()+"Kegiatan Terpilih");
+        }
+
+        @Override
+        public boolean onCreateActionMode(ActionMode mode, Menu menu) {
+            MenuInflater menuInflater = mode.getMenuInflater();
+            menuInflater.inflate(R.menu.menubaru_layout, menu);
+            fab.setEnabled(false);
+            return true;
+        }
+
+        @Override
+        public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
+            return false;
+        }
+
+        @Override
+        public boolean onActionItemClicked(final ActionMode mode, MenuItem item) {
+            int id =item.getItemId();
+            if (id == R.id.item_hapus){
+                AlertDialog.Builder builderdeleteterpilih = new AlertDialog.Builder(MainActivity.this);
+                builderdeleteterpilih.setTitle("Hapus Kegiatan Terpilih");
+                builderdeleteterpilih.setMessage("lu beneran pengen hapus " + data.size() + "Kegiatan yang terpilih ? :(");
+                builderdeleteterpilih.setPositiveButton("yes i do", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        listitem.setBackgroundColor(Color.TRANSPARENT);
+                        Toast.makeText(getApplicationContext(),data.size()+"Kegiatan terpilih berhasil dihapus :(", Toast.LENGTH_SHORT).show();
+                        removeSelectedItem(getData);
+                        mode.finish();
+                    }
+                });
+                builderdeleteterpilih.setNegativeButton("Gajadi deh",null);
+                builderdeleteterpilih.create();
+                builderdeleteterpilih.show();
+            }
+            return true;
+        }
+
+        @Override
+        public void onDestroyActionMode(ActionMode mode) {
+            listitem.setAdapter(arrayAdapter);
+            getData.clear();
+            fab.setEnabled(true);
+        }
+    };
 }
